@@ -4,7 +4,7 @@ import { ARButton } from "three/addons/webxr/ARButton.js";
 let container;
 let camera, scene, renderer;
 let target;
-let cone;
+const cones = [];
 
 initConfiguration();
 initScene();
@@ -38,8 +38,8 @@ function initConfiguration() {
       requiredFeatures: ["hit-test", "depth-sensing"], // New feature
       depthSensing: {
         usagePreference: ["cpu-optimized"],
-        dataFormatPreference: ["luminance-alpha"]
-      }
+        dataFormatPreference: ["luminance-alpha"],
+      },
     })
   );
 
@@ -102,8 +102,8 @@ function onSelect() {
     // set the position of the cylinder based on where the reticle is
     mesh.position.setFromMatrixPosition(target.matrix);
     mesh.quaternion.setFromRotationMatrix(target.matrix);
-    
-    cone = mesh;
+
+    cones.push(mesh);
     scene.add(mesh);
   }
 }
@@ -144,7 +144,7 @@ function render(timestamp, frame) {
     // Initialize
     if (!hitTestSourceInitialized) {
       initializeHitTestSource();
-      console.log("init")
+      console.log("init");
     }
 
     // Get hit test results
@@ -163,44 +163,39 @@ function render(timestamp, frame) {
       } else {
         target.visible = false;
       }
+      
       const session = frame.session;
-      //console.log(session)
       const baseLayer = session.renderState.baseLayer;
       const pose = frame.getViewerPose(localSpace);
-      renderer.render(scene, camera)
+      renderer.render(scene, camera);
       if (pose) {
         for (const view of pose.views) {
           const viewport = baseLayer.getViewport(view);
           const depthData = frame.getDepthInformation(view);
-          if (depthData) {
-            // Get the position of the target (reticle) in world coordinates
-            const targetPosition = new THREE.Vector3().setFromMatrixPosition(target.matrix);
-            if (!cone) return;
-            
-            const coneWorldPosition = cone.getWorldPosition(new THREE.Vector3());
-            //console.log("Cone world: ", coneWorldPosition)
-            
-            const conePosition = cone.position.clone()
-            // Convert the target position to normalized device coordinates (NDC)
-            const ndc = coneWorldPosition.clone().project(camera);
-            //console.log("projected: ", ndc.x, ndc.y)
+          if (depthData && cones.length != 0) {
+            for (const cone of cones) {
+              const coneWorldPosition = cone.getWorldPosition(
+                new THREE.Vector3()
+              );
 
-            var distance;
-            const virtualDistance = camera.position.distanceTo(cone.position);
-            // Get the depth at the target's NDC position
-            
-            if (ndc.x < 1.0 && ndc.x > -1.0 && ndc.y < 1.0 && ndc.y > -1.0) {
-              distance = depthData.getDepthInMeters((ndc.x + 1) / 2, (ndc.y + 1) / 2);
-              console.log("Distance: ", distance)
-              console.log("Virtual: ", virtualDistance);
-            }
-            
+              const ndc = coneWorldPosition.clone().project(camera);
 
-            // If the depth value is not null and it is closer than the target's position, hide the cone
-            if (distance !== null && distance < virtualDistance * 0.9) {
-              if (cone) cone.visible = false;
-            } else {
-              if (cone) cone.visible = true; // Make cone visible if no obstruction
+              var distance;
+              const virtualDistance = camera.position.distanceTo(cone.position);
+
+              if (ndc.x < 1.0 && ndc.x > -1.0 && ndc.y < 1.0 && ndc.y > -1.0) {
+                distance = depthData.getDepthInMeters(
+                  (ndc.x + 1) / 2,
+                  (ndc.y + 1) / 2
+                );
+              }
+
+              // If the depth value is not null and it is closer than the target's position, hide the cone
+              if (distance !== null && distance < virtualDistance * 0.9) {
+                if (cone) cone.visible = false;
+              } else {
+                if (cone) cone.visible = true; // Make cone visible if no obstruction
+              }
             }
           }
         }
@@ -208,4 +203,3 @@ function render(timestamp, frame) {
     }
   }
 }
-
