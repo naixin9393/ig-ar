@@ -23,8 +23,8 @@ function initConfiguration() {
     40
   );
 
-  camera.position.set(0, 1, 4);
-  camera.rotation.set(-0.4, 0, 0);
+  camera.position.set(0, 0, 0);
+  camera.rotation.set(0, 0, 0);
 
   renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
   renderer.setPixelRatio(window.devicePixelRatio);
@@ -163,15 +163,16 @@ function render(timestamp, frame) {
       } else {
         target.visible = false;
       }
-      
+
       const session = frame.session;
-      const baseLayer = session.renderState.baseLayer;
       const pose = frame.getViewerPose(localSpace);
       renderer.render(scene, camera);
+
       if (pose) {
         for (const view of pose.views) {
-          const viewport = baseLayer.getViewport(view);
+
           const depthData = frame.getDepthInformation(view);
+
           if (depthData && cones.length != 0) {
             for (const cone of cones) {
               const coneWorldPosition = cone.getWorldPosition(
